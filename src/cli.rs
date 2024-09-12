@@ -24,13 +24,11 @@ pub enum Commands {
 pub fn list(package: &str) -> Result<String> {
     let pkg_list = proll::get_pkg_index()?;
 
-    let pkg_iter = pkg_list.split("\n");
-
     let colored_package = package.red();
 
     let mut result = String::new();
 
-    for pkg in pkg_iter {
+    for pkg in pkg_list.split('\n') {
         if pkg.contains(package) {
             let mut splits = pkg.split(package);
             result.push_str(&format!("{}", splits.next().unwrap()));
