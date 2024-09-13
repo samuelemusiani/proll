@@ -6,7 +6,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = cli::Cli::parse();
 
     let res = match cli.command {
-        Some(cli::Commands::List { package }) => cli::list(&package),
+        Some(cli::Commands::List {
+            package,
+            raw,
+            no_color,
+        }) => cli::list(&package, raw, no_color),
         None => panic!(),
     };
 
