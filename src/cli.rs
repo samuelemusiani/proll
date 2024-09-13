@@ -102,7 +102,17 @@ pub fn downgrade(package: String, version: Option<String>) -> Result<String> {
         .collect();
 
     if let Some(version) = version {
-        pkg = pkg.into_iter().filter(|x| x.contains(&version)).collect();
+        pkg = pkg
+            .into_iter()
+            .filter(|x| {
+                let p = Package::parse(x);
+                if let Ok(p) = p {
+                    p.version().contains(&version)
+                } else {
+                    false
+                }
+            })
+            .collect();
     };
 
     if pkg.len() > 1 {
