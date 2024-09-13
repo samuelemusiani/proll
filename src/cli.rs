@@ -126,6 +126,8 @@ pub fn downgrade(package: String, version: Option<String>) -> Result<String> {
         err.push('\n');
 
         return Err(err.into());
+    } else if pkg.len() == 0 {
+        return Err("No package matched pattern\n".into());
     }
 
     println!("Matched package {}. Downgrading...", pkg[0].green());
