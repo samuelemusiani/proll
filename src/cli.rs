@@ -28,9 +28,19 @@ pub enum Commands {
         #[arg(short, long, default_value_t = false)]
         no_color: bool,
     },
+
+    /// Downgrade a package by version or by name
+    #[command(arg_required_else_help = true)]
+    Downgrade {
+        /// Name of the package
+        package: String,
+
+        /// Version of the package
+        version: Option<String>,
+    },
 }
 
-pub fn list(package: &str, raw_print: bool, no_color: bool) -> Result<String> {
+pub fn list(package: String, raw_print: bool, no_color: bool) -> Result<String> {
     let pkg_list = proll::get_pkg_index()?;
 
     let mut result = String::new();
@@ -42,14 +52,14 @@ pub fn list(package: &str, raw_print: bool, no_color: bool) -> Result<String> {
     }
 
     for pkg in pkg_list.split('\n') {
-        if pkg.contains(package) {
+        if pkg.contains(&package) {
             if !raw_print {
                 let p = Package::parse(pkg)?;
 
                 let name = if no_color {
                     p.name()
                 } else {
-                    &color_match(p.name(), package)
+                    &color_match(p.name(), &package)
                 };
 
                 result.push_str(&format!(
@@ -63,7 +73,7 @@ pub fn list(package: &str, raw_print: bool, no_color: bool) -> Result<String> {
                 let pkg = if no_color {
                     pkg
                 } else {
-                    &color_match(pkg, package)
+                    &color_match(pkg, &package)
                 };
 
                 result.push_str(&pkg);
@@ -73,6 +83,42 @@ pub fn list(package: &str, raw_print: bool, no_color: bool) -> Result<String> {
     }
 
     Ok(result)
+}
+
+pub fn downgrade(package: String, version: Option<String>) -> Result<String> {
+    match &version {
+        Some(v) => {
+            if !v.chars().all(|x| x == '.' || x.is_numeric()) {
+                return Err("Version not valid, should be in the form: 1.2.3\n".into());
+            }
+        }
+        None => {}
+    };
+
+    let pkg_list = proll::get_pkg_index()?;
+    let mut pkg: Vec<&str> = pkg_list
+        .split('\n')
+        .filter(|x| x.contains(&package))
+        .collect();
+
+    if let Some(version) = version {
+        pkg = pkg.into_iter().filter(|x| x.contains(&version)).collect();
+    };
+
+    if pkg.len() > 1 {
+        let pkgs = pkg.join("\n");
+        let msg = "More than one package match. Please be more specific. Matched:\n";
+        let mut err = String::with_capacity(msg.len() + pkgs.len());
+        err.push_str(msg);
+        err.push_str(&pkgs);
+        err.push('\n');
+
+        return Err(err.into());
+    }
+
+    println!("Matched package {}\nDowngrading...", pkg[0].green());
+
+    todo!()
 }
 
 /// Return s with the substrings equal to m colored
