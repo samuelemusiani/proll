@@ -1,5 +1,11 @@
-use std::fmt;
-use std::io::Read;
+use chrono::{DateTime, Utc};
+use std::{
+    fmt, fs,
+    io::{Read, Write},
+    path::Path,
+    str::FromStr,
+    u16,
+};
 
 use minreq;
 use xz::read::XzDecoder;
@@ -7,17 +13,64 @@ use xz::read::XzDecoder;
 const ARCH_URL: &str = "https://archive.archlinux.org";
 const INDEX_PATH: &str = "/packages/.all/index.0.xz";
 const PKG_POSTFIX: &str = ".pkg.tar.zst";
+const CACHE_DURATION: i64 = 5; // 5 minutes
 
 pub type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>;
 
 pub fn get_pkg_index() -> Result<String> {
+    let pkg_list = read_cache();
+    match pkg_list {
+        Ok(s) => match s {
+            Some(s) => return Ok(s),
+            None => eprintln!("Cache is empty"),
+        },
+        Err(e) => eprintln!("Error: Reading cache: {e}"),
+    }
+
     let res = minreq::get(ARCH_URL.to_owned() + INDEX_PATH).send()?;
     let cursor = std::io::Cursor::new(res.into_bytes());
 
     // The 34M value is derived by printing the capacity of the string when full
     let mut pkg_list = String::with_capacity(34_000_000);
     XzDecoder::new(cursor).read_to_string(&mut pkg_list)?;
+
+    write_cache(&pkg_list)?;
+
     Ok(pkg_list)
+}
+
+fn read_cache() -> Result<Option<String>> {
+    let p = Path::new("/tmp/.proll");
+
+    if !p.exists() {
+        return Ok(None);
+    }
+
+    let last_write = fs::read_to_string(p.join("date"))?;
+    let last_write: DateTime<Utc> = DateTime::from_str(&last_write)?;
+    let minutes = (Utc::now() - last_write).num_minutes();
+    if minutes > CACHE_DURATION {
+        return Ok(None);
+    }
+
+    let pkgs = fs::read_to_string(p.join("pkgs"))?;
+    Ok(Some(pkgs))
+}
+
+fn write_cache(pkgs: &str) -> Result<()> {
+    let p = Path::new("/tmp/.proll");
+    if !p.exists() {
+        fs::create_dir(p)?;
+    };
+
+    let mut pkgs_file = fs::File::create(p.join("pkgs"))?;
+    pkgs_file.write_all(pkgs.as_bytes())?;
+
+    let last_write = Utc::now();
+    let mut date_file = fs::File::create(p.join("date"))?;
+    date_file.write_all(&last_write.to_string().as_bytes())?;
+
+    Ok(())
 }
 
 #[derive(Debug)]
@@ -39,7 +92,7 @@ impl fmt::Display for Arch {
 pub struct Package {
     name: String,
     version: String,
-    build_version: u8,
+    build_version: u16,
     arch: Arch,
 }
 
@@ -67,7 +120,7 @@ impl Package {
             .ok_or("Cannot find second '-' in package str")?;
 
         let (package, build_version) = package.split_at(index);
-        let build_version: u8 = (build_version.strip_prefix('-'))
+        let build_version: u16 = (build_version.strip_prefix('-'))
             .ok_or("Parse error. Cannot strip - from build_version")?
             .parse()?;
 
@@ -114,7 +167,7 @@ impl Package {
         &self.version
     }
 
-    pub fn build_version(&self) -> u8 {
+    pub fn build_version(&self) -> u16 {
         self.build_version
     }
 
