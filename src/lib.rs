@@ -1,4 +1,5 @@
 use chrono::{DateTime, Utc};
+use core::panic;
 use std::{
     fmt, fs,
     io::{Read, Write},
@@ -12,7 +13,8 @@ use xz::read::XzDecoder;
 
 const ARCH_URL: &str = "https://archive.archlinux.org";
 const INDEX_PATH: &str = "/packages/.all/index.0.xz";
-const PKG_POSTFIX: &str = ".pkg.tar.zst";
+const PKG_POSTFIX1: &str = ".pkg.tar.zst";
+const PKG_POSTFIX2: &str = ".pkg.tar.xz";
 const CACHE_DURATION: i64 = 5; // 5 minutes
 
 pub type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>;
@@ -150,13 +152,36 @@ impl Package {
         )
     }
 
-    pub fn get_url(&self) -> String {
-        format!(
-            "{ARCH_URL}/packages/{}/{}{}",
+    /// The postfix can be of two types, so we return a tuple of
+    /// urls and the caller check which is correct
+    pub fn get_url(&self) -> Result<String> {
+        let mut base = format!(
+            "{ARCH_URL}/packages/{}/{}",
             self.name.chars().next().unwrap(),
-            self.full_name(),
-            PKG_POSTFIX
-        )
+            self.name(),
+        );
+
+        let name1 = format!("{}{}", self.full_name(), PKG_POSTFIX1);
+        let name2 = format!("{}{}", self.full_name(), PKG_POSTFIX2);
+
+        let res = match minreq::get(&base).send() {
+            Ok(res) => res,
+            Err(e) => panic!("Getting base packages: {e}"),
+        };
+
+        let res = res.as_str()?;
+
+        if res.contains(&name1) {
+            base.push('/');
+            base.push_str(&name1);
+            Ok(base)
+        } else if res.contains(&name2) {
+            base.push('/');
+            base.push_str(&name2);
+            Ok(base)
+        } else {
+            Err("Could not find package extension".into())
+        }
     }
 
     pub fn name(&self) -> &str {

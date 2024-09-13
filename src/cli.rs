@@ -132,7 +132,7 @@ pub fn downgrade(package: String, version: Option<String>) -> Result<String> {
 
     // Should check if present in local cache
     let p = Package::parse(pkg[0])?;
-    let url = p.get_url();
+    let url = p.get_url()?;
 
     let err = process::Command::new("pacman").args(["-U", &url]).exec();
 
