@@ -1,5 +1,6 @@
 use clap::{Parser, Subcommand};
 use colored::Colorize;
+use proll::Package;
 
 pub type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -24,20 +25,38 @@ pub enum Commands {
 pub fn list(package: &str) -> Result<String> {
     let pkg_list = proll::get_pkg_index()?;
 
-    let colored_package = package.red();
-
     let mut result = String::new();
+    result.push_str(&format!(
+        "{}\t\t{}\t\t{}\t{}\n",
+        "Name", "Version", "Build", "Arch"
+    ));
 
     for pkg in pkg_list.split('\n') {
         if pkg.contains(package) {
-            let mut splits = pkg.split(package);
-            result.push_str(&format!("{}", splits.next().unwrap()));
-            for spl in splits {
-                result.push_str(&format!("{colored_package}{spl}"));
-            }
-            result.push('\n');
+            let p = Package::parse(pkg)?;
+            result.push_str(&format!(
+                "{}\t\t{}\t\t{}\t{}\n",
+                color_match(p.name(), package),
+                p.version(),
+                p.build_version(),
+                p.arch()
+            ));
         }
     }
 
     Ok(result)
+}
+
+/// Return s with the substrings equal to m colored
+fn color_match(s: &str, m: &str) -> String {
+    let mut result = String::with_capacity(s.len());
+
+    let mut splits = s.split(m);
+
+    result.push_str(&format!("{}", splits.next().unwrap()));
+    for spl in splits {
+        result.push_str(&format!("{}{spl}", m.red()));
+    }
+
+    result
 }
