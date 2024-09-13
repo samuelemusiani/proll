@@ -1,6 +1,8 @@
 use clap::{Parser, Subcommand};
 use colored::Colorize;
 use proll::Package;
+use std::os::unix::process::CommandExt;
+use std::process;
 
 pub type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -126,9 +128,16 @@ pub fn downgrade(package: String, version: Option<String>) -> Result<String> {
         return Err(err.into());
     }
 
-    println!("Matched package {}\nDowngrading...", pkg[0].green());
+    println!("Matched package {}. Downgrading...", pkg[0].green());
 
-    todo!()
+    // Should check if present in local cache
+    let p = Package::parse(pkg[0])?;
+    let url = p.get_url();
+    println!("URL: {url}");
+
+    let err = process::Command::new("pacman").args(["-U", &url]).exec();
+
+    Err(err.into())
 }
 
 /// Return s with the substrings equal to m colored
