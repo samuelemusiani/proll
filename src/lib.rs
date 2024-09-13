@@ -4,8 +4,10 @@ use std::io::Read;
 use minreq;
 use xz::read::XzDecoder;
 
-const ARCH_URL: &str = "https://archive.archlinux.org/";
-const INDEX_PATH: &str = "packages/.all/index.0.xz";
+const ARCH_URL: &str = "https://archive.archlinux.org";
+const INDEX_PATH: &str = "/packages/.all/index.0.xz";
+const PKG_POSTFIX: &str = ".pkg.tar.zst";
+
 pub type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>;
 
 pub fn get_pkg_index() -> Result<String> {
@@ -86,6 +88,22 @@ impl Package {
             build_version,
             arch,
         })
+    }
+
+    pub fn full_name(&self) -> String {
+        format!(
+            "{}-{}-{}-{}",
+            self.name, self.version, self.build_version, self.arch
+        )
+    }
+
+    pub fn get_url(&self) -> String {
+        format!(
+            "{ARCH_URL}/packages/{}/{}{}",
+            self.name.chars().next().unwrap(),
+            self.full_name(),
+            PKG_POSTFIX
+        )
     }
 
     pub fn name(&self) -> &str {
