@@ -22,7 +22,7 @@ pub fn get_pkg_index() -> Result<String> {
     match pkg_list {
         Ok(s) => match s {
             Some(s) => return Ok(s),
-            None => eprintln!("Cache is empty"),
+            None => {}
         },
         Err(e) => eprintln!("Error: Reading cache: {e}"),
     }
