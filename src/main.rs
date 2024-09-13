@@ -11,7 +11,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     match res {
-        Ok(s) => println!("{s}"),
+        Ok(s) => print!("{s}"),
         Err(e) => return Err(e),
     };
 
